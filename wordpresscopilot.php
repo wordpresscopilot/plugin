@@ -23,10 +23,22 @@ class WordpressCopilot_Options_Access {
         add_action('rest_api_init', array($this, 'register_api_endpoints'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
     }
 
     private function generate_default_api_key() {
-        return wp_generate_uuid4();
+        if (function_exists('wp_generate_uuid4')) {
+            return wp_generate_uuid4();
+        } else {
+            // Fallback method if wp_generate_uuid4 is not available
+            return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+                mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0x0fff) | 0x4000,
+                mt_rand(0, 0x3fff) | 0x8000,
+                mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+            );
+        }
     }
 
     public function register_api_endpoints() {
@@ -290,9 +302,15 @@ class WordpressCopilot_Options_Access {
                 </table>
                 <?php submit_button(); ?>
             </form>
-            <a href="<?php echo esc_url('https://wordpresscopilot.com/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wordpresscopilot_api_key'))); ?>" class="button button-primary"><?php echo esc_html__('Connect to Wordpress Copilot', 'wordpresscopilot'); ?></a>
+            <a href="<?php echo esc_url('https://wordpresscopilot.com/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wordpresscopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wordpresscopilot'); ?></a>
         </div>
         <?php
+    }
+
+    public function add_settings_link($links) {
+        $settings_link = '<a href="' . admin_url('options-general.php?page=wordpresscopilot-api-settings') . '">' . __('Settings', 'wordpresscopilot') . '</a>';
+        array_unshift($links, $settings_link);
+        return $links;
     }
 }
 
