@@ -28,14 +28,33 @@ jobs:
       run: |
         zip -r wordpress-copilot.zip . -x "*.git*" -x "*.github*"
 
+    - name: Get latest release
+      id: get_latest_release
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          const releases = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo
+          });
+          const latestRelease = releases.data[0];
+          if (latestRelease) {
+            const match = latestRelease.tag_name.match(/^v(\d+)$/);
+            if (match) {
+              return parseInt(match[1]);
+            }
+          }
+          return 0;
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: latest
-        release_name: 'Latest Release'
+        tag_name: v${{ steps.get_latest_release.outputs.result + 1 }}
+        release_name: 'Release v${{ steps.get_latest_release.outputs.result + 1 }}'
         draft: false
         prerelease: false
 
