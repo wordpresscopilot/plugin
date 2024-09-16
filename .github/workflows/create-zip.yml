@@ -1,24 +1,32 @@
-name: Build release zip
+name: Create Plugin Zip
 
 on:
   push:
     branches:
-    - main
+      - main
 
 jobs:
   build:
-    name: Build release zip
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-    - name: Build plugin # Remove or modify this step as needed
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Create zip file
       run: |
-        npm install
-        npm run build
+        zip -r wordpress-copilot.zip . -x "*.git*" -x "*.github*"
 
-    - name: Generate zip
-      uses: 10up/action-wordpress-plugin-build-zip@stable
-      env:
-        SLUG: wordpress-copilot
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: wordpress-copilot
+        path: wordpress-copilot.zip
