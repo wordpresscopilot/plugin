@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Wordpress Copilot  
  * Description: AI-Powered Wordpress Development
- * Version: 0.0.5
+ * Version: 0.0.6
  * Author: Wordpress Copliot
  * Author URI: https://wordpresscopilot.com
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
