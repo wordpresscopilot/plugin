@@ -47,14 +47,18 @@ jobs:
           }
           return 0;
 
+    - name: Increment version
+      id: increment_version
+      run: echo "::set-output name=new_version::$((1 + ${{ steps.get_latest_release.outputs.result }}))"
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ steps.get_latest_release.outputs.result + 1 }}
-        release_name: 'Release v${{ steps.get_latest_release.outputs.result + 1 }}'
+        tag_name: v${{ steps.increment_version.outputs.new_version }}
+        release_name: 'Release v${{ steps.increment_version.outputs.new_version }}'
         draft: false
         prerelease: false
 
