@@ -17,9 +17,11 @@ if (!defined('ABSPATH')) {
 
 class WordpressCopilot_Options_Access {
     private $api_key;
+    private $api_key_status;
 
     public function __construct() {
         $this->api_key = get_option('wordpresscopilot_api_key', $this->generate_default_api_key());
+        $this->api_key_status = $this->check_api_key_status();
         add_action('rest_api_init', array($this, 'register_api_endpoints'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
@@ -39,6 +41,13 @@ class WordpressCopilot_Options_Access {
                 mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
             );
         }
+    }
+
+    private function check_api_key_status() {
+        // Implement your API key validation logic here
+        // For example, you could make a request to your API to check if the key is valid
+        // Return true if the key is valid, false otherwise
+        return true; // Placeholder return value
     }
 
     public function register_api_endpoints() {
@@ -297,7 +306,17 @@ class WordpressCopilot_Options_Access {
                 <table class="form-table">
                     <tr valign="top">
                         <th scope="row"><?php echo esc_html__('API Key', 'wordpresscopilot'); ?></th>
-                        <td><input type="text" name="wordpresscopilot_api_key" value="<?php echo esc_attr(get_option('wordpresscopilot_api_key')); ?>" /></td>
+                        <td>
+                            <input type="text" name="wordpresscopilot_api_key" value="<?php echo esc_attr(get_option('wordpresscopilot_api_key')); ?>" />
+                            <p class="description">
+                                <?php echo esc_html__('API Key Status: ', 'wordpresscopilot'); ?>
+                                <?php echo $this->api_key_status ? '<span style="color: green;">Valid</span>' : '<span style="color: red;">Invalid</span>'; ?>
+                            </p>
+                            <p class="description">
+                                <?php echo esc_html__('Current API Key (for debug): ', 'wordpresscopilot'); ?>
+                                <code><?php echo esc_html($this->api_key); ?></code>
+                            </p>
+                        </td>
                     </tr>
                 </table>
                 <?php submit_button(); ?>
