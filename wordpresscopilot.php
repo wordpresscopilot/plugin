@@ -75,10 +75,19 @@ class WordpressCopilot_Options_Access {
             'permission_callback' => array($this, 'check_permission')
         ));
     }
-
-    public function check_permission() {
-        $provided_key = isset($_GET['api_key']) ? sanitize_text_field($_GET['api_key']) : '';
-        if (!wp_check_invalid_utf8($provided_key) && $provided_key === $this->api_key) {
+    public function check_permission($request) {
+        $provided_key = $request->get_header('Authorization');
+        if (!empty($provided_key)) {
+            // Check if it's a Bearer token
+            if (preg_match('/^Bearer\s+(.*)$/i', $provided_key, $matches)) {
+                $provided_key = $matches[1];
+            }
+        } else {
+            // If not in header, check for api_key parameter
+            $provided_key = $request->get_param('api_key');
+        }
+        
+        if (!empty($provided_key) && !wp_check_invalid_utf8($provided_key) && $provided_key === $this->api_key) {
             return true;
         }
         return new WP_Error('rest_forbidden', esc_html__('Invalid API Key', 'wordpresscopilot'), array('status' => 403));
