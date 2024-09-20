@@ -74,6 +74,12 @@ class WordpressCopilot_Options_Access {
             'callback' => array($this, 'run_php_code'),
             'permission_callback' => array($this, 'check_permission')
         ));
+
+        register_rest_route('wordpresscopilot/v1', '/run-wp-cli', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'run_wp_cli_command'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
     }
     public function check_permission($request) {
         $provided_key = $request->get_header('Authorization');
@@ -87,7 +93,7 @@ class WordpressCopilot_Options_Access {
             $provided_key = $request->get_param('api_key');
         }
         
-        if (!empty($provided_key) && !wp_check_invalid_utf8($provided_key) && $provided_key === $this->api_key) {
+        if ($provided_key === $this->api_key) {
             return true;
         }
         return new WP_Error('rest_forbidden', esc_html__('Invalid API Key', 'wordpresscopilot'), array('status' => 403));
@@ -165,6 +171,31 @@ class WordpressCopilot_Options_Access {
         $response = array(
             'output' => esc_html($output),
             'return_value' => esc_html($return_value)
+        );
+
+        return new WP_REST_Response($response, 200);
+    }
+
+    public function run_wp_cli_command($request) {
+        $params = $request->get_json_params();
+        $command = isset($params['command']) ? sanitize_text_field($params['command']) : '';
+
+        if (empty($command)) {
+            return new WP_Error('invalid_command', esc_html__('WP-CLI command is required', 'wordpresscopilot'), array('status' => 400));
+        }
+
+        // Check if WP-CLI is available
+        if (!class_exists('WP_CLI')) {
+            return new WP_Error('wp_cli_not_available', esc_html__('WP-CLI is not available', 'wordpresscopilot'), array('status' => 500));
+        }
+
+        // Execute the WP-CLI command
+        ob_start();
+        WP_CLI::run_command(explode(' ', $command));
+        $output = ob_get_clean();
+
+        $response = array(
+            'output' => esc_html($output)
         );
 
         return new WP_REST_Response($response, 200);
