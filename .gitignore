@@ -1,0 +1,3 @@
+# Ignore WordPress plugin zip files
+*.zip
+.DS_STORE

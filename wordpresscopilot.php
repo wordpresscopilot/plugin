@@ -26,6 +26,8 @@ class WordpressCopilot_Options_Access {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+        add_action('admin_footer', array($this, 'add_chat_popup'));
     }
 
     private function generate_default_api_key() {
@@ -185,14 +187,43 @@ class WordpressCopilot_Options_Access {
         }
 
         // Check if WP-CLI is available
-        if (!class_exists('WP_CLI')) {
-            return new WP_Error('wp_cli_not_available', esc_html__('WP-CLI is not available', 'wordpresscopilot'), array('status' => 500));
-        }
+        if (class_exists('WP_CLI')) {
+            // Execute the WP-CLI command using WP_CLI class
+            ob_start();
+            WP_CLI::run_command(explode(' ', $command));
+            $output = ob_get_clean();
+        } else {
+            // Path to WP-CLI
+            $wp_cli_path = '/usr/local/bin/wp';
 
-        // Execute the WP-CLI command
-        ob_start();
-        WP_CLI::run_command(explode(' ', $command));
-        $output = ob_get_clean();
+            // Check if WP-CLI is available at the specified path
+            if (!file_exists($wp_cli_path)) {
+                return new WP_Error('wp_cli_not_available', esc_html__('WP-CLI is not available', 'wordpresscopilot'), array('status' => 500));
+            }
+
+            // Execute the WP-CLI command using shell
+            $full_command = escapeshellcmd($wp_cli_path . ' ' . $command);
+            $process = proc_open($full_command, [
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w']
+            ], $pipes);
+
+            if (!is_resource($process)) {
+                return new WP_Error('command_execution_failed', esc_html__('Failed to execute WP-CLI command', 'wordpresscopilot'), array('status' => 500));
+            }
+
+            $output = stream_get_contents($pipes[1]);
+            $error_output = stream_get_contents($pipes[2]);
+
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+
+            $return_code = proc_close($process);
+
+            if ($return_code !== 0) {
+                return new WP_Error('command_execution_failed', esc_html($error_output), array('status' => 500));
+            }
+        }
 
         $response = array(
             'output' => esc_html($output)
@@ -238,7 +269,7 @@ class WordpressCopilot_Options_Access {
         }
         $all_plugins = get_plugins();
         $active_plugins = get_option('active_plugins', array());
-        
+            
         $plugin_info = array();
         foreach ($all_plugins as $plugin_path => $plugin_data) {
             $plugin_info[] = array(
@@ -370,6 +401,25 @@ class WordpressCopilot_Options_Access {
         $settings_link = '<a href="' . admin_url('options-general.php?page=wordpresscopilot-api-settings') . '">' . __('Settings', 'wordpresscopilot') . '</a>';
         array_unshift($links, $settings_link);
         return $links;
+    }
+
+    public function enqueue_admin_scripts() {
+        wp_enqueue_style('wordpresscopilot-admin-style', plugins_url('css/admin-style.css', __FILE__));
+        wp_enqueue_script('wordpresscopilot-admin-script', plugins_url('js/admin-script.js', __FILE__), array('jquery'), null, true);
+    }
+
+    public function add_chat_popup() {
+        ?>
+        <div id="wordpresscopilot-chat-popup" class="wordpresscopilot-chat-popup">
+            <div class="chat-header">
+                <h3><?php echo esc_html__('WordPress Copilot Chat', 'wordpresscopilot'); ?></h3>
+                <button id="wordpresscopilot-minimize-chat" class="minimize-button">-</button>
+            </div>
+            <div class="chat-body">
+                <iframe src="<?php echo esc_url('https://wordpresscopilot.com/chat'); ?>" frameborder="0"></iframe>
+            </div>
+        </div>
+        <?php
     }
 }
 
