@@ -100,7 +100,7 @@ class WPCopilot_Options_Access {
         if ($provided_key === $this->api_key) {
             return true;
         }
-        return new WP_Error('rest_forbidden', esc_html__('Invalid API Key', 'wordpresscopilot'), array('status' => 403));
+        return new WP_Error('rest_forbidden', esc_html__('Invalid API Key', 'wpcopilot'), array('status' => 403));
     }
 
     public function get_site_info() {
@@ -122,7 +122,7 @@ class WPCopilot_Options_Access {
     public function get_health_check($request) {
         $response = array(
             'status' => 'ok',
-            'message' => esc_html__('WPCopilot API is functioning correctly', 'wordpresscopilot'),
+            'message' => esc_html__('WPCopilot API is functioning correctly', 'wpcopilot'),
             'timestamp' => current_time('mysql')
         );
 
@@ -141,14 +141,14 @@ class WPCopilot_Options_Access {
         $query = isset($params['query']) ? sanitize_text_field($params['query']) : '';
 
         if (empty($query)) {
-            return new WP_Error('invalid_query', esc_html__('SQL query is required', 'wordpresscopilot'), array('status' => 400));
+            return new WP_Error('invalid_query', esc_html__('SQL query is required', 'wpcopilot'), array('status' => 400));
         }
 
         $allowed_operations = array('SELECT', 'SHOW', 'DESCRIBE', 'DESC');
         $operation = strtoupper(substr(trim($query), 0, 6));
         
         if (!in_array($operation, $allowed_operations, true)) {
-            return new WP_Error('forbidden_operation', esc_html__('Only SELECT, SHOW, DESCRIBE, and DESC operations are allowed', 'wordpresscopilot'), array('status' => 403));
+            return new WP_Error('forbidden_operation', esc_html__('Only SELECT, SHOW, DESCRIBE, and DESC operations are allowed', 'wpcopilot'), array('status' => 403));
         }
 
         $results = $wpdb->get_results($query, ARRAY_A);
@@ -165,7 +165,7 @@ class WPCopilot_Options_Access {
         $code = isset($params['code']) ? sanitize_text_field($params['code']) : '';
 
         if (empty($code)) {
-            return new WP_Error('invalid_code', esc_html__('PHP code is required', 'wordpresscopilot'), array('status' => 400));
+            return new WP_Error('invalid_code', esc_html__('PHP code is required', 'wpcopilot'), array('status' => 400));
         }
 
         // Execute the PHP code
@@ -186,7 +186,7 @@ class WPCopilot_Options_Access {
         $command = isset($params['command']) ? sanitize_text_field($params['command']) : '';
 
         if (empty($command)) {
-            return new WP_Error('invalid_command', esc_html__('WP-CLI command is required', 'wordpresscopilot'), array('status' => 400));
+            return new WP_Error('invalid_command', esc_html__('WP-CLI command is required', 'wpcopilot'), array('status' => 400));
         }
 
         // Check if WP-CLI is available
@@ -201,7 +201,7 @@ class WPCopilot_Options_Access {
 
             // Check if WP-CLI is available at the specified path
             if (!file_exists($wp_cli_path)) {
-                return new WP_Error('wp_cli_not_available', esc_html__('WP-CLI is not available', 'wordpresscopilot'), array('status' => 500));
+                return new WP_Error('wp_cli_not_available', esc_html__('WP-CLI is not available', 'wpcopilot'), array('status' => 500));
             }
 
             // Execute the WP-CLI command using shell
@@ -212,7 +212,7 @@ class WPCopilot_Options_Access {
             ], $pipes);
 
             if (!is_resource($process)) {
-                return new WP_Error('command_execution_failed', esc_html__('Failed to execute WP-CLI command', 'wordpresscopilot'), array('status' => 500));
+                return new WP_Error('command_execution_failed', esc_html__('Failed to execute WP-CLI command', 'wpcopilot'), array('status' => 500));
             }
 
             $output = stream_get_contents($pipes[1]);
@@ -371,7 +371,7 @@ class WPCopilot_Options_Access {
     public function settings_page() {
         ?>
         <div class="wrap">
-            <h1><?php echo esc_html__('Wordpress Copilot API Settings', 'wordpresscopilot'); ?></h1>
+            <h1><?php echo esc_html__('Wordpress Copilot API Settings', 'wpcopilot'); ?></h1>
             <form method="post" action="options.php">
                 <?php
                     settings_fields('wpcopilot_api_settings');
@@ -379,15 +379,15 @@ class WPCopilot_Options_Access {
                 ?>
                 <table class="form-table">
                     <tr valign="top">
-                        <th scope="row"><?php echo esc_html__('API Key', 'wordpresscopilot'); ?></th>
+                        <th scope="row"><?php echo esc_html__('API Key', 'wpcopilot'); ?></th>
                         <td>
                             <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr(get_option('wpcopilot_api_key')); ?>" />
                             <p class="description">
-                                <?php echo esc_html__('API Key Status: ', 'wordpresscopilot'); ?>
+                                <?php echo esc_html__('API Key Status: ', 'wpcopilot'); ?>
                                 <?php echo $this->api_key_status ? '<span style="color: green;">Valid</span>' : '<span style="color: red;">Invalid</span>'; ?>
                             </p>
                             <p class="description">
-                                <?php echo esc_html__('Current API Key (for debug): ', 'wordpresscopilot'); ?>
+                                <?php echo esc_html__('Current API Key (for debug): ', 'wpcopilot'); ?>
                                 <code><?php echo esc_html($this->api_key); ?></code>
                             </p>
                         </td>
@@ -395,28 +395,28 @@ class WPCopilot_Options_Access {
                 </table>
                 <?php submit_button(); ?>
             </form>
-            <a href="<?php echo esc_url('https://wpc.dev/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wpcopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wordpresscopilot'); ?></a>
+            <a href="<?php echo esc_url('https://wpc.dev/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wpcopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wpcopilot'); ?></a>
         </div>
         <?php
     }
 
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . admin_url('options-general.php?page=wordpresscopilot-api-settings') . '">' . __('Settings', 'wordpresscopilot') . '</a>';
+        $settings_link = '<a href="' . admin_url('options-general.php?page=wpcopilot-api-settings') . '">' . __('Settings', 'wpcopilot') . '</a>';
         array_unshift($links, $settings_link);
         return $links;
     }
 
     public function enqueue_admin_scripts() {
-        wp_enqueue_style('wordpresscopilot-admin-style', plugins_url('css/admin-style.css', __FILE__));
-        wp_enqueue_script('wordpresscopilot-admin-script', plugins_url('js/admin-script.js', __FILE__), array('jquery'), null, true);
+        wp_enqueue_style('wpcopilot-admin-style', plugins_url('css/admin-style.css', __FILE__));
+        wp_enqueue_script('wpcopilot-admin-script', plugins_url('js/admin-script.js', __FILE__), array('jquery'), null, true);
     }
 
     public function add_chat_popup() {
         ?>
-        <div id="wordpresscopilot-chat-popup" class="wordpresscopilot-chat-popup">
+        <div id="wpcopilot-chat-popup" class="wpcopilot-chat-popup">
             <div class="chat-header">
-                <h3><?php echo esc_html__('WordPress Copilot Chat', 'wordpresscopilot'); ?></h3>
-                <button id="wordpresscopilot-minimize-chat" class="minimize-button">-</button>
+                <h3><?php echo esc_html__('WordPress Copilot Chat', 'wpcopilot'); ?></h3>
+                <button id="wpcopilot-minimize-chat" class="minimize-button">-</button>
             </div>
             <div class="chat-body">
                 <iframe src="<?php echo esc_url('https://wpc.dev/chat'); ?>" frameborder="0"></iframe>
