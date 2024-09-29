@@ -381,7 +381,7 @@ class WPCopilot_Options_Access {
                     <tr valign="top">
                         <th scope="row"><?php echo esc_html__('API Key', 'wpcopilot'); ?></th>
                         <td>
-                            <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr(get_option('wpcopilot_api_key')); ?>" />
+                            <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr($this->api_key); ?>" />
                             <p class="description">
                                 <?php echo esc_html__('API Key Status: ', 'wpcopilot'); ?>
                                 <?php echo $this->api_key_status ? '<span style="color: green;">Valid</span>' : '<span style="color: red;">Invalid</span>'; ?>
