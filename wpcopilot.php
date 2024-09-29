@@ -15,13 +15,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class WordpressCopilot_Options_Access {
+class WPCopilot_Options_Access {
     private $api_key;
     private $api_key_status;
     private $plugin_version;
 
     public function __construct() {
-        $this->api_key = get_option('wordpresscopilot_api_key', $this->generate_default_api_key());
+        $this->api_key = get_option('wpcopilot_api_key', $this->generate_default_api_key());
         $this->api_key_status = $this->check_api_key_status();
         $this->plugin_version = '0.0.8';
         add_action('rest_api_init', array($this, 'register_api_endpoints'));
@@ -122,7 +122,7 @@ class WordpressCopilot_Options_Access {
     public function get_health_check($request) {
         $response = array(
             'status' => 'ok',
-            'message' => esc_html__('WordpressCopilot API is functioning correctly', 'wordpresscopilot'),
+            'message' => esc_html__('WPCopilot API is functioning correctly', 'wordpresscopilot'),
             'timestamp' => current_time('mysql')
         );
 
@@ -356,16 +356,16 @@ class WordpressCopilot_Options_Access {
 
     public function add_admin_menu() {
         add_options_page(
-            esc_html__('Wordpresss Copilot API Settings', 'wordpresscopilot'),
-            esc_html__('Wordpresss Copilot API', 'wordpresscopilot'),
+            esc_html__('WPCopilot - wpc.dev API Settings', 'wpcopilot'),
+            esc_html__('WPCopilot - wpc.dev API Key', 'wpcopilot'),
             'manage_options',
-            'wordpresscopilot-api-settings',
+            'wpcopilot-api-settings',
             array($this, 'settings_page')
         );
     }
 
     public function register_settings() {
-        register_setting('wordpresscopilot_api_settings', 'wordpresscopilot_api_key', 'sanitize_text_field');
+        register_setting('wpcopilot_api_settings', 'wpcopilot_api_key', 'sanitize_text_field');
     }
 
     public function settings_page() {
@@ -374,14 +374,14 @@ class WordpressCopilot_Options_Access {
             <h1><?php echo esc_html__('Wordpress Copilot API Settings', 'wordpresscopilot'); ?></h1>
             <form method="post" action="options.php">
                 <?php
-                    settings_fields('wordpresscopilot_api_settings');
-                    do_settings_sections('wordpresscopilot_api_settings');
+                    settings_fields('wpcopilot_api_settings');
+                    do_settings_sections('wpcopilot_api_settings');
                 ?>
                 <table class="form-table">
                     <tr valign="top">
                         <th scope="row"><?php echo esc_html__('API Key', 'wordpresscopilot'); ?></th>
                         <td>
-                            <input type="text" name="wordpresscopilot_api_key" value="<?php echo esc_attr(get_option('wordpresscopilot_api_key')); ?>" />
+                            <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr(get_option('wpcopilot_api_key')); ?>" />
                             <p class="description">
                                 <?php echo esc_html__('API Key Status: ', 'wordpresscopilot'); ?>
                                 <?php echo $this->api_key_status ? '<span style="color: green;">Valid</span>' : '<span style="color: red;">Invalid</span>'; ?>
@@ -395,7 +395,7 @@ class WordpressCopilot_Options_Access {
                 </table>
                 <?php submit_button(); ?>
             </form>
-            <a href="<?php echo esc_url('https://wordpresscopilot.com/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wordpresscopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wordpresscopilot'); ?></a>
+            <a href="<?php echo esc_url('https://wpc.dev/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wpcopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wordpresscopilot'); ?></a>
         </div>
         <?php
     }
@@ -419,11 +419,11 @@ class WordpressCopilot_Options_Access {
                 <button id="wordpresscopilot-minimize-chat" class="minimize-button">-</button>
             </div>
             <div class="chat-body">
-                <iframe src="<?php echo esc_url('https://wordpresscopilot.com/chat'); ?>" frameborder="0"></iframe>
+                <iframe src="<?php echo esc_url('https://wpc.dev/chat'); ?>" frameborder="0"></iframe>
             </div>
         </div>
         <?php
     }
 }
 
-new WordpressCopilot_Options_Access();
+new WPCopilot_Options_Access();
