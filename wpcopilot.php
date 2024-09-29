@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Wordpress Copilot  
+ * Plugin Name: WPCopilot  
  * Description: AI-Powered Wordpress Development
- * Version: 0.0.6
- * Author: Wordpress Copliot
- * Author URI: https://wordpresscopilot.com
+ * Version: 0.0.8
+ * Author: WPCopilot - wpc.dev
+ * Author URI: https://wpc.dev
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
- * Text Domain: wordpresscopilot
+ * Text Domain: wpcopilot
  * Domain Path: /languages
  */
 
@@ -18,10 +18,12 @@ if (!defined('ABSPATH')) {
 class WordpressCopilot_Options_Access {
     private $api_key;
     private $api_key_status;
+    private $plugin_version;
 
     public function __construct() {
         $this->api_key = get_option('wordpresscopilot_api_key', $this->generate_default_api_key());
         $this->api_key_status = $this->check_api_key_status();
+        $this->plugin_version = '0.0.8';
         add_action('rest_api_init', array($this, 'register_api_endpoints'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
@@ -53,31 +55,31 @@ class WordpressCopilot_Options_Access {
     }
 
     public function register_api_endpoints() {
-        register_rest_route('wordpresscopilot/v1', '/site-info', array(
+        register_rest_route('wpcoilot/v1', '/site-info', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_site_info'),
             'permission_callback' => array($this, 'check_permission')
         ));
 
-        register_rest_route('wordpresscopilot/v1', '/health', array(
+        register_rest_route('wpcoilot/v1', '/health', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_health_check'),
             'permission_callback' => '__return_true'
         ));
 
-        register_rest_route('wordpresscopilot/v1', '/run-sql', array(
+        register_rest_route('wpcoilot/v1', '/run-sql', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_sql_query'),
             'permission_callback' => array($this, 'check_permission')
         ));
 
-        register_rest_route('wordpresscopilot/v1', '/run-php', array(
+        register_rest_route('wpcoilot/v1', '/run-php', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_php_code'),
             'permission_callback' => array($this, 'check_permission')
         ));
 
-        register_rest_route('wordpresscopilot/v1', '/run-wp-cli', array(
+        register_rest_route('wpcoilot/v1', '/run-wp-cli', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_wp_cli_command'),
             'permission_callback' => array($this, 'check_permission')
@@ -103,7 +105,8 @@ class WordpressCopilot_Options_Access {
 
     public function get_site_info() {
         $response = array(
-            'agent_name' => 'WordpressCopilot',
+            'agent_name' => 'WPCopilot',
+            'plugin_version' => $this->plugin_version,
             'general_info' => $this->get_general_info(),
             'theme_info' => $this->get_theme_info(),
             'plugin_info' => $this->get_plugin_info(),
