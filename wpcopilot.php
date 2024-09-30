@@ -55,31 +55,36 @@ class WPCopilot_Options_Access {
     }
 
     public function register_api_endpoints() {
-        register_rest_route('wpcoilot/v1', '/site-info', array(
+        register_rest_route('wpcopilot/v1', '/site-info', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_site_info'),
             'permission_callback' => array($this, 'check_permission')
         ));
+        register_rest_route('wpcopilot/v1', '/plugins', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_plugin_info'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
 
-        register_rest_route('wpcoilot/v1', '/health', array(
+        register_rest_route('wpcopilot/v1', '/health', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_health_check'),
             'permission_callback' => '__return_true'
         ));
 
-        register_rest_route('wpcoilot/v1', '/run-sql', array(
+        register_rest_route('wpcopilot/v1', '/run-sql', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_sql_query'),
             'permission_callback' => array($this, 'check_permission')
         ));
 
-        register_rest_route('wpcoilot/v1', '/run-php', array(
+        register_rest_route('wpcopilot/v1', '/run-php', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_php_code'),
             'permission_callback' => array($this, 'check_permission')
         ));
 
-        register_rest_route('wpcoilot/v1', '/run-wp-cli', array(
+        register_rest_route('wpcopilot/v1', '/run-wp-cli', array(
             'methods' => 'POST',
             'callback' => array($this, 'run_wp_cli_command'),
             'permission_callback' => array($this, 'check_permission')
@@ -381,7 +386,7 @@ class WPCopilot_Options_Access {
                     <tr valign="top">
                         <th scope="row"><?php echo esc_html__('API Key', 'wpcopilot'); ?></th>
                         <td>
-                            <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr($this->api_key); ?>" />
+                            <input type="text" name="wpcopilot_api_key" value="<?php echo esc_attr($this->api_key); ?>" style="width: 100%; max-width: 400px;" />
                             <p class="description">
                                 <?php echo esc_html__('API Key Status: ', 'wpcopilot'); ?>
                                 <?php echo $this->api_key_status ? '<span style="color: green;">Valid</span>' : '<span style="color: red;">Invalid</span>'; ?>
