@@ -89,7 +89,26 @@ class WPCopilot_Options_Access {
             'callback' => array($this, 'run_wp_cli_command'),
             'permission_callback' => array($this, 'check_permission')
         ));
+
+        register_rest_route('wpcopilot/v1', '/upload-media', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'upload_media_by_url'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
+        register_rest_route('wpcopilot/v1', '/flush-cache', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'flush_cache'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
+        register_rest_route('wpcopilot/v1', '/install-plugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'install_plugin_endpoint'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
     }
+
     public function check_permission($request) {
         $provided_key = $request->get_header('Authorization');
         if (!empty($provided_key)) {
@@ -106,6 +125,96 @@ class WPCopilot_Options_Access {
             return true;
         }
         return new WP_Error('rest_forbidden', esc_html__('Invalid API Key', 'wpcopilot'), array('status' => 403));
+    }
+
+    public function flush_cache($request) {
+        if (!current_user_can('install_plugins')) {
+            return new WP_Error('rest_forbidden', esc_html__('You do not have permission to install plugins.', 'wpcopilot'), array('status' => 403));
+        }
+
+        $params = $request->get_json_params();
+        // Flush transients
+        if (function_exists('wp_clear_scheduled_hook')) {
+            wp_clear_scheduled_hook('delete_expired_transients');
+        }
+        delete_expired_transients(true);
+
+        // Flush rewrite rules
+        flush_rewrite_rules();
+
+        // Flush cache for popular caching plugins
+        // W3 Total Cache
+        if (function_exists('w3tc_flush_all')) {
+            w3tc_flush_all();
+        }
+
+        // WP Super Cache
+        if (function_exists('wp_cache_clear_cache')) {
+            wp_cache_clear_cache();
+        }
+
+        // WP Rocket
+        if (function_exists('rocket_clean_domain')) {
+            rocket_clean_domain();
+        }
+
+        // WP Fastest Cache
+        if (function_exists('wpfc_clear_all_cache')) {
+            wpfc_clear_all_cache(true);
+        }
+
+        // LiteSpeed Cache
+        if (class_exists('LiteSpeed_Cache_API') && method_exists('LiteSpeed_Cache_API', 'purge_all')) {
+            LiteSpeed_Cache_API::purge_all();
+        }
+
+        // Autoptimize
+        if (class_exists('autoptimizeCache') && method_exists('autoptimizeCache', 'clearall')) {
+            autoptimizeCache::clearall();
+        }
+
+        // WP-Optimize
+        if (function_exists('wpo_cache_flush')) {
+            wpo_cache_flush();
+        }
+
+        // Comet Cache
+        if (class_exists('comet_cache') && method_exists('comet_cache', 'clear')) {
+            comet_cache::clear();
+        }
+
+        // Cache Enabler
+        if (class_exists('Cache_Enabler') && method_exists('Cache_Enabler', 'clear_total_cache')) {
+            Cache_Enabler::clear_total_cache();
+        }
+
+        // Hummingbird
+        if (class_exists('\Hummingbird\Core\Utils') && method_exists('\Hummingbird\Core\Utils', 'flush_cache')) {
+            \Hummingbird\Core\Utils::flush_cache();
+        }
+
+        // Swift Performance
+        if (class_exists('Swift_Performance_Cache') && method_exists('Swift_Performance_Cache', 'clear_all_cache')) {
+            Swift_Performance_Cache::clear_all_cache();
+        }
+
+        // WP Optimize
+        if (class_exists('WP_Optimize') && method_exists('WP_Optimize', 'get_page_cache') && method_exists('WP_Optimize', 'get_minify')) {
+            WP_Optimize()->get_page_cache()->purge();
+            WP_Optimize()->get_minify()->purge();
+        }
+
+        // SG Optimizer
+        if (function_exists('sg_cachepress_purge_cache')) {
+            sg_cachepress_purge_cache();
+        }
+
+        // Breeze
+        if (class_exists('Breeze_Admin') && method_exists('Breeze_Admin', 'breeze_clear_all_cache')) {
+            Breeze_Admin::breeze_clear_all_cache();
+        }
+
+        return new WP_REST_Response(array('message' => 'Cache flushed successfully'), 200);
     }
 
     public function get_site_info() {
@@ -127,12 +236,23 @@ class WPCopilot_Options_Access {
         $response = array(
             'status' => 'ok',
             'message' => esc_html__('WPCopilot API is functioning correctly', 'wpcopilot'),
-            'timestamp' => current_time('mysql')
+            'timestamp' => current_time('mysql'),
+            'plugin_version' => $this->plugin_version
         );
 
-        $provided_key = isset($_GET['api_key']) ? sanitize_text_field($_GET['api_key']) : '';
+        $provided_key = $request->get_header('Authorization');
         if (!empty($provided_key)) {
-            $response['api_key_valid'] = (!wp_check_invalid_utf8($provided_key) && $provided_key === $this->api_key);
+            // Check if it's a Bearer token
+            if (preg_match('/^Bearer\s+(.*)$/i', $provided_key, $matches)) {
+                $provided_key = $matches[1];
+            }
+        } else {
+            // If not in header, check for api_key parameter
+            $provided_key = $request->get_param('api_key');
+        }
+
+        if (!empty($provided_key)) {
+            $response['api_key_valid'] = $provided_key === $this->api_key;
         }
 
         return new WP_REST_Response($response, 200);
@@ -147,13 +267,12 @@ class WPCopilot_Options_Access {
         if (empty($query)) {
             return new WP_Error('invalid_query', esc_html__('SQL query is required', 'wpcopilot'), array('status' => 400));
         }
-
-        $allowed_operations = array('SELECT', 'SHOW', 'DESCRIBE', 'DESC');
-        $operation = strtoupper(substr(trim($query), 0, 6));
+        // $allowed_operations = array('SELECT', 'SHOW', 'DESCRIBE', 'DESC');
+        // $operation = strtoupper(substr(trim($query), 0, 6));
         
-        if (!in_array($operation, $allowed_operations, true)) {
-            return new WP_Error('forbidden_operation', esc_html__('Only SELECT, SHOW, DESCRIBE, and DESC operations are allowed', 'wpcopilot'), array('status' => 403));
-        }
+        // if (!in_array($operation, $allowed_operations, true)) {
+        //     return new WP_Error('forbidden_operation', esc_html__('Only SELECT, SHOW, DESCRIBE, and DESC operations are allowed', 'wpcopilot'), array('status' => 403));
+        // }
 
         $results = $wpdb->get_results($query, ARRAY_A);
 
@@ -239,6 +358,69 @@ class WPCopilot_Options_Access {
         return new WP_REST_Response($response, 200);
     }
 
+    public function upload_media_by_url($request) {
+        $params = $request->get_json_params();
+        $url = isset($params['url']) ? esc_url_raw($params['url']) : '';
+        $filename = isset($params['filename']) ? sanitize_file_name($params['filename']) : '';
+
+        if (empty($url)) {
+            return new WP_Error('invalid_url', esc_html__('URL is required', 'wpcopilot'), array('status' => 400));
+        }
+
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        // Download file to temp dir
+        $temp_file = download_url($url);
+
+        if (is_wp_error($temp_file)) {
+            return new WP_Error('download_failed', $temp_file->get_error_message(), array('status' => 500));
+        }
+
+        // Array based on $_FILE as seen in PHP file uploads
+        $file = array(
+            'name'     => $filename ?: basename($url),
+            'type'     => mime_content_type($temp_file),
+            'tmp_name' => $temp_file,
+            'error'    => 0,
+            'size'     => filesize($temp_file),
+        );
+
+        $overrides = array(
+            'test_form' => false,
+            'test_size' => true,
+        );
+
+        // Move the temporary file into the uploads directory
+        $results = wp_handle_sideload($file, $overrides);
+
+        if (!empty($results['error'])) {
+            return new WP_Error('upload_failed', $results['error'], array('status' => 500));
+        }
+
+        // Insert the attachment into the media library
+        $attachment = array(
+            'post_mime_type' => $results['type'],
+            'post_title'     => preg_replace('/\.[^.]+$/', '', $results['file']),
+            'post_content'   => '',
+            'post_status'    => 'inherit'
+        );
+
+        $attach_id = wp_insert_attachment($attachment, $results['file']);
+
+        // Generate attachment metadata
+        $attach_data = wp_generate_attachment_metadata($attach_id, $results['file']);
+        wp_update_attachment_metadata($attach_id, $attach_data);
+
+        $response = array(
+            'id'  => $attach_id,
+            'url' => wp_get_attachment_url($attach_id),
+        );
+
+        return new WP_REST_Response($response, 200);
+    }
+
     private function get_general_info() {
         return array(
             'site_title' => esc_html(get_bloginfo('name')),
@@ -270,7 +452,7 @@ class WPCopilot_Options_Access {
         );
     }
 
-    private function get_plugin_info() {
+    public function get_plugin_info() {
         if (!function_exists('get_plugins')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
@@ -287,7 +469,7 @@ class WPCopilot_Options_Access {
                 'is_active' => in_array($plugin_path, $active_plugins, true)
             );
         }
-        return $plugin_info;
+        return new WP_REST_Response($plugin_info, 200);
     }
 
     private function get_wordpress_posts() {
@@ -427,6 +609,48 @@ class WPCopilot_Options_Access {
             </div>
         </div>
         <?php
+    }
+
+    public function install_plugin_endpoint($request) {
+        // if (!current_user_can('install_plugins')) {
+        //     return new WP_Error('rest_forbidden', esc_html__('You do not have permission to install plugins.', 'wpcopilot'), array('status' => 403));
+        // }
+
+        $params = $request->get_json_params();
+        $plugin_url = isset($params['plugin_url']) ? esc_url_raw($params['plugin_url']) : '';
+
+        if (empty($plugin_url)) {
+            return new WP_Error('invalid_plugin_url', esc_html__('Plugin URL is required.', 'wpcopilot'), array('status' => 400));
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        // Download the plugin
+        $download_link = $plugin_url;
+        $upgrader = new Plugin_Upgrader(new WP_Ajax_Upgrader_Skin());
+        $installed = $upgrader->install($download_link);
+
+        if (is_wp_error($installed)) {
+            return new WP_Error('plugin_install_failed', $installed->get_error_message(), array('status' => 500));
+        }
+
+        if (!$installed) {
+            return new WP_Error('plugin_install_failed', esc_html__('Plugin installation failed for an unknown reason.', 'wpcopilot'), array('status' => 500));
+        }
+
+        // Activate the plugin
+        $plugin_file = $upgrader->plugin_info();
+        $activate = activate_plugin($plugin_file);
+
+        if (is_wp_error($activate)) {
+            return new WP_Error('plugin_activation_failed', $activate->get_error_message(), array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => esc_html__('Plugin installed and activated successfully.', 'wpcopilot')), 200);
     }
 }
 
