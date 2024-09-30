@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WPCopilot  
  * Description: AI-Powered Wordpress Development
- * Version: 0.0.8
+ * Version: 0.0.9
  * Author: WPCopilot - wpc.dev
  * Author URI: https://wpc.dev
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
@@ -23,7 +23,7 @@ class WPCopilot_Options_Access {
     public function __construct() {
         $this->api_key = get_option('wpcopilot_api_key', $this->generate_default_api_key());
         $this->api_key_status = $this->check_api_key_status();
-        $this->plugin_version = '0.0.8';
+        $this->plugin_version = '0.0.9';
         add_action('rest_api_init', array($this, 'register_api_endpoints'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
@@ -114,11 +114,10 @@ class WPCopilot_Options_Access {
             'plugin_version' => $this->plugin_version,
             'general_info' => $this->get_general_info(),
             'theme_info' => $this->get_theme_info(),
-            'plugin_info' => $this->get_plugin_info(),
-            'posts' => $this->get_wordpress_posts(),
-            'menus' => $this->get_menu_info(),
-            'widgets' => $this->get_widget_info(),
-            'favicon' => $this->get_favicon(),
+            // 'posts' => $this->get_wordpress_posts(),
+            // 'menus' => $this->get_menu_info(),
+            // 'favicon' => $this->get_favicon(),
+            // 'widgets' => $this->get_widget_info(),
             'site_logo' => $this->get_site_logo(),
         );
         return new WP_REST_Response($response, 200);
