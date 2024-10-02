@@ -29,7 +29,14 @@ class WPCopilot_Options_Access {
         add_action('admin_init', array($this, 'register_settings'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('admin_footer', array($this, 'add_chat_popup'));
+        // add_action('admin_footer', array($this, 'add_chat_popup'));
+        add_action('wp_ajax_auto_login', array($this, 'auto_login'));
+        add_action('wp_ajax_nopriv_auto_login', array($this, 'auto_login'));
+
+        add_filter('x_frame_options', array($this, 'allow_iframe_from_specific_domains'));
+        add_filter('content_security_policy', array($this, 'allow_iframe_from_specific_domains'));
+        add_action('send_headers', array($this, 'modify_headers'), 1);
+        add_action('admin_init', array($this, 'allow_iframe_in_admin'));
     }
 
     private function generate_default_api_key() {
@@ -45,6 +52,52 @@ class WPCopilot_Options_Access {
                 mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
             );
         }
+    }
+
+    public function allow_iframe_in_admin() {
+        $allowed_domains = array('localhost', 'localhost:3000', 'wpc.dev', 'dev.wpc.dev', 'app.wpc.dev');
+        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+        $parsed_origin = parse_url($origin);
+        
+        if (isset($parsed_origin['host']) && in_array($parsed_origin['host'], $allowed_domains)) {
+            // Remove X-Frame-Options header
+            header_remove('X-Frame-Options');
+            
+            // Set Content-Security-Policy header
+            header("Content-Security-Policy: frame-ancestors 'self' " . esc_url($origin));
+        }
+    }
+    public function modify_headers() {
+        $allowed_domains = array('localhost', 'localhost:3000', 'wpc.dev', 'dev.wpc.dev', 'app.wpc.dev');
+        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+        $parsed_origin = parse_url($origin);
+        
+        if (isset($parsed_origin['host']) && in_array($parsed_origin['host'], $allowed_domains)) {
+            // Remove X-Frame-Options header
+            header_remove('X-Frame-Options');
+            
+            // Set Content-Security-Policy header
+            header("Content-Security-Policy: frame-ancestors 'self' " . esc_url($origin));
+        }
+    }
+
+    public function allow_iframe_from_specific_domains($header) {
+        $allowed_domains = array('localhost', 'localhost:3000', 'wpc.dev', 'dev.wpc.dev', 'app.wpc.dev', 'agent-sandbox-1.local');
+        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+        $parsed_origin = parse_url($origin);
+        
+        if (isset($parsed_origin['host']) && in_array($parsed_origin['host'], $allowed_domains)) {
+            // Remove existing X-Frame-Options header
+            header_remove('X-Frame-Options');
+            
+            // Set Content-Security-Policy header
+            header("Content-Security-Policy: frame-ancestors 'self' " . esc_url($origin));
+            
+            // Set X-Frame-Options for older browsers
+            return "ALLOW-FROM " . esc_url($origin);
+        }
+        
+        return $header;
     }
 
     private function check_api_key_status() {
@@ -107,6 +160,45 @@ class WPCopilot_Options_Access {
             'callback' => array($this, 'install_plugin_endpoint'),
             'permission_callback' => array($this, 'check_permission')
         ));
+        register_rest_route('wpcopilot/v1', '/install-plugin-file', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'install_plugin_file_endpoint'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
+        register_rest_route('wpcopilot/v1', '/get-admin-login-link', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_admin_login_link'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+        register_rest_route('wpcopilot/v1', '/check-login-status', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'check_login_status'),
+            'permission_callback' => '__return_true'
+        ));
+
+        register_rest_route('wpcopilot/v1', '/remove-plugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'remove_plugin_endpoint'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+    }
+
+    public function check_login_status() {
+        $current_user = wp_get_current_user();
+        $is_logged_in = is_user_logged_in();
+    
+        $response = array(
+            'is_logged_in' => $is_logged_in,
+            'user_info' => array(
+                'id' => $current_user->ID,
+                'username' => $current_user->user_login,
+                'email' => $current_user->user_email,
+                'roles' => $current_user->roles,
+            ),
+        );
+    
+        return new WP_REST_Response($response, 200);
     }
 
     public function check_permission($request) {
@@ -581,7 +673,7 @@ class WPCopilot_Options_Access {
                 </table>
                 <?php submit_button(); ?>
             </form>
-            <a href="<?php echo esc_url('https://wpc.dev/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wpcopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to Wordpress Copilot', 'wpcopilot'); ?></a>
+            <a href="<?php echo esc_url('https://wpc.dev/connect?wpurl=' . urlencode(get_site_url()) . '&api_key=' . urlencode(get_option('wpcopilot_api_key'))); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer"><?php echo esc_html__('Connect to WPCopilot', 'wpcopilot'); ?></a>
         </div>
         <?php
     }
@@ -609,6 +701,47 @@ class WPCopilot_Options_Access {
             </div>
         </div>
         <?php
+    }
+
+    public function install_plugin_file_endpoint($request) {
+        $params = $request->get_json_params();
+        $plugin_code = isset($params['plugin_code']) ? $params['plugin_code'] : '';
+        $plugin_name = isset($params['plugin_name']) ? sanitize_file_name($params['plugin_name']) : '';
+    
+        if (empty($plugin_code) || empty($plugin_name)) {
+            return new WP_Error('invalid_plugin_data', esc_html__('Plugin code and name are required.', 'wpcopilot'), array('status' => 400));
+        }
+    
+        // Ensure the plugin name ends with .php
+        if (!preg_match('/\.php$/', $plugin_name)) {
+            $plugin_name .= '.php';
+        }
+    
+        $plugin_dir = WP_PLUGIN_DIR . '/' . dirname($plugin_name);
+        $plugin_file = $plugin_dir . '/' . basename($plugin_name);
+    
+        // Create plugin directory if it doesn't exist
+        if (!file_exists($plugin_dir)) {
+            wp_mkdir_p($plugin_dir);
+        }
+    
+        // Write the plugin file
+        $write_result = file_put_contents($plugin_file, $plugin_code);
+    
+        if ($write_result === false) {
+            return new WP_Error('plugin_write_failed', esc_html__('Failed to write plugin file.', 'wpcopilot'), array('status' => 500));
+        }
+    
+        // Activate the plugin
+        $activate = activate_plugin($plugin_file);
+    
+        if (is_wp_error($activate)) {
+            // If activation fails, delete the plugin file
+            unlink($plugin_file);
+            return new WP_Error('plugin_activation_failed', $activate->get_error_message(), array('status' => 500));
+        }
+    
+        return new WP_REST_Response(array('message' => esc_html__('Plugin installed and activated successfully.', 'wpcopilot')), 200);
     }
 
     public function install_plugin_endpoint($request) {
@@ -651,6 +784,120 @@ class WPCopilot_Options_Access {
         }
 
         return new WP_REST_Response(array('message' => esc_html__('Plugin installed and activated successfully.', 'wpcopilot')), 200);
+    }
+    public function remove_plugin_endpoint($request) {
+        $params = $request->get_json_params();
+        $plugin_slug = isset($params['plugin_slug']) ? sanitize_text_field($params['plugin_slug']) : '';
+
+        if (empty($plugin_slug)) {
+            return new WP_Error('invalid_plugin_slug', esc_html__('Plugin slug is required.', 'wpcopilot'), array('status' => 400));
+        }
+
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $all_plugins = get_plugins();
+        $plugin_file = '';
+
+        foreach ($all_plugins as $file => $plugin) {
+            if (strpos($file, $plugin_slug . '/') === 0 || $file === $plugin_slug . '.php') {
+                $plugin_file = $file;
+                break;
+            }
+        }
+
+        if (empty($plugin_file)) {
+            return new WP_Error('plugin_not_found', esc_html__('Plugin not found.', 'wpcopilot'), array('status' => 404));
+        }
+
+        // Deactivate the plugin if it's active
+        if (is_plugin_active($plugin_file)) {
+            deactivate_plugins($plugin_file);
+        }
+
+        // Delete the plugin
+        $deleted = delete_plugins(array($plugin_file));
+
+        if (is_wp_error($deleted)) {
+            return new WP_Error('plugin_deletion_failed', $deleted->get_error_message(), array('status' => 500));
+        }
+
+        if (!$deleted) {
+            return new WP_Error('plugin_deletion_failed', esc_html__('Plugin removal failed for an unknown reason.', 'wpcopilot'), array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => esc_html__('Plugin removed successfully.', 'wpcopilot')), 200);
+    }
+    public function get_admin_login_link($request) {
+        if (!function_exists('wp_create_nonce')) {
+            require_once(ABSPATH . 'wp-includes/pluggable.php');
+        }
+
+        // Get the first admin user
+        $admin_users = get_users(array('role' => 'administrator', 'number' => 1));
+        if (empty($admin_users)) {
+            return new WP_Error('no_admin', esc_html__('No administrator account found.', 'wpcopilot'), array('status' => 400));
+        }
+
+        $admin_user = $admin_users[0];
+
+        $nonce = wp_create_nonce('auto-login-nonce');
+        $auto_login_url = add_query_arg(array(
+            'action' => 'auto_login',
+            'user_id' => $admin_user->ID,
+            'nonce' => $nonce
+        ), admin_url('admin-ajax.php'));
+
+        return new WP_REST_Response(array('auto_login_url' => $auto_login_url), 200);
+    }
+
+    public function handle_auto_login() {
+        if (isset($_GET['action']) && $_GET['action'] === 'auto_login') {
+            $this->auto_login();
+        }
+    }
+
+    public function auto_login() {
+        error_log('auto_login function called');
+
+        $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
+        $nonce = isset($_GET['nonce']) ? sanitize_text_field($_GET['nonce']) : '';
+
+        // Log the received parameters
+        error_log('Received user_id: ' . $user_id);
+        error_log('Received nonce: ' . $nonce);
+
+        $nonce_verification = wp_verify_nonce($nonce, 'auto-login-nonce');
+        
+        // Log the nonce verification result
+        error_log('Nonce verification result: ' . ($nonce_verification ? 'true' : 'false'));
+
+        
+        // Return user_id and nonce for debugging
+        // wp_send_json(array(
+        //     'user_id' => $user_id,
+        //     'nonce' => $nonce,
+        //     'wp_verify_nonce' => wp_verify_nonce($nonce, 'auto-login-nonce')
+        // ));
+        // return;
+        if (!wp_verify_nonce($nonce, 'auto-login-nonce')) {
+            wp_die(esc_html__('Security check failed.', 'wpcopilot'));
+        }
+
+        $user = get_user_by('id', $user_id);
+        if ($user && user_can($user, 'administrator')) {
+            wp_clear_auth_cookie();
+            wp_set_current_user($user_id, $user->user_login);
+            wp_set_auth_cookie($user_id);
+            do_action('wp_login', $user->user_login, $user);
+            error_log('User logged in successfully: ' . $user->user_login);
+            wp_redirect(admin_url());
+            exit;
+        }
+        error_log('Auto-login failed');
+
+        wp_die(esc_html__('Auto-login failed.', 'wpcopilot'));
     }
 }
 
