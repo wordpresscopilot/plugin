@@ -24,5 +24,5 @@ WordPress Copilot is released under the GNU General Public License v3.0. You can
 
 ## Support
 
-For support, feature requests, or bug reports, please visit https://wpc.dev or contact support@wordpresscopilot.com.
+For support, feature requests, or bug reports, please visit https://wpc.dev or contact support@wpc.dev.
 
